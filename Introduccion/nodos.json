@@ -1,0 +1,12 @@
+{
+
+"Nodo 1": { "host": "localhost",
+            "port": "8081"  },
+
+"Nodo 2": { "host": "localhost",
+            "port": "8082"  },
+
+"Nodo 3": { "host": "localhost",
+            "port": "8083"  },
+
+}
