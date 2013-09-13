@@ -3,9 +3,17 @@
 
 import socket
 from time import sleep
+import sys
+
+if(len(sys.argv) < 2):
+    sys.exit("Forma de ejecucion: python %s <server_ip> <server_port>" % sys.argv[0])
+
+if(len(sys.argv) < 3):
+    sys.exit("Falta <server_port>. Forma de ejecucion: python %s <server_ip> <server_port>" % sys.argv[0])
+
 # Ejemplo de Socket Servidor TCP
 buffsize = 4096                # Tamaño del buffer
-host, port = 'localhost', 5600  # Host y Puerto a donde se va a conectar
+host, port = sys.argv[1],int(sys.argv[2])  # Host y Puerto a donde se va a conectar
 backlog = 5                     # Cantidad de conexiones que vamos a atender/encolar
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   # Declaración del Socket TCP
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Permite reutilizar host/port "inmediatamente" si se nos cae el servidor
