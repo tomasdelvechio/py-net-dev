@@ -5,16 +5,21 @@ import socket
 import sys
 
 if(len(sys.argv) < 2):
-    sys.exit("Falta el mensaje. Forma de ejecucion: python %s mensaje" % sys.argv[0])
+    sys.exit("Forma de ejecucion: python %s <server_ip> <server_port> [<timezone>]" % sys.argv[0])
 
-data_send = sys.argv[1]
+if(len(sys.argv) < 3):
+    sys.exit("Falta <server_port>. Forma de ejecucion: python %s <server_ip> <server_port> [<timezone>]" % sys.argv[0])
 
-# Ejemplo de Socket Cliente TCP
+if(len(sys.argv) < 4):
+    tz = "0"
+else:
+    tz = sys.argv[3]
+
 buff_size = 4096                # Tamaño del buffer
-host, port = 'localhost', 5600  # Host y Puerto a donde se va a conectar
+host, port = sys.argv[1],int(sys.argv[2])  # Host y Puerto a donde se va a conectar
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Declaración del Socket
 s.connect((host, port))         # Inicia la conexión TCP contra el servidor
-s.send(data_send)                  # Envío algo
+s.send(tz)                  # Envío algo
 data = s.recv(buff_size)               # Recibo algo
-print "El servidor respondio: ", data
+print "Fecha y Hora: ", data
 s.close()                       # Cierro el socket
