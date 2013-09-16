@@ -17,11 +17,17 @@ def load_hosts(mode='host_by_name',hosts_file='hosts'):
 
 def gethostbyname(hostname):
     hosts = load_hosts()
-    return hosts[hostname]
+    if hosts.has_key(hostname):
+        return hosts[hostname]
+    else:
+        return 0
     
 def gethostbyaddr(ip_addr):
     hosts = load_hosts('host_by_addr')
-    return hosts[ip_addr]
+    if hosts.has_key(ip_addr):
+        return hosts[ip_addr]
+    else:
+        return 0
 
 if(len(sys.argv) < 2):
     sys.exit("Forma de ejecucion: python %s <server_ip> <server_port>" % sys.argv[0])
