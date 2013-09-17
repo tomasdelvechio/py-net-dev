@@ -15,6 +15,16 @@ if(len(sys.argv) < 3):
 if(len(sys.argv) < 4):
     sys.exit("Falta <timezone>. Forma de ejecucion: python %s <server_ip> <server_port> <timezone>" % sys.argv[0])
 
+print """Servidor daytime
+    
+    Mensaje de peticion: 1 byte.
+    
+    Mensaje de respuesta: 4 Campos separados por '|'. El formato es el siguiente:
+        
+        <fecha_y_hora:42 bytes>|<timezone:32 bytes>|<formato_fecha_y_hora:25 bytes>|<version:5 bytes>
+        Total: 107 bytes.
+    """
+
 buffsize = 1 # Espero un paquete de 1 byte
 host, port = sys.argv[1],int(sys.argv[2])
 backlog = 5 # Cantidad de conexiones que vamos a atender/encolar
@@ -36,8 +46,10 @@ while True:
     utc_datetime = datetime.datetime.utcnow()
     utc_datetime = utc_datetime.replace(tzinfo=pytz.utc)
     data = datetime.datetime.astimezone(utc_datetime, pytz.timezone(tz))
+    str_data = data.strftime(fmt)
     
-    response =  """%s\n%s\n%s\n%s""" % (str(data.strftime(fmt)),tz,fmt,version) # Arma la estructura de respuesta para el cliente.
+    #~ response = """%s\n%s\n%s\n%s""" % (str_data,tz,fmt,version) # Arma la estructura de respuesta para el cliente.
+    response = """{0:42}|{1:32}|{2:25}|{3:5}""".format(str_data,tz,fmt,version) # Campo de 107 bytes
     client_sock.sendall(response)
     
     print "    Respuesta:", data
