@@ -9,7 +9,16 @@ class HttpClient:
         self.LOGFILE = logfile
         self.parsed_url = None # Instance of class urlparse
         self.http_version = "HTTP/1.1"
-    
+        self.buffer = 4096
+        self.separador = '\r\n\r\n' # Separador de header y content de la respuesta HTTP
+        self.download_file = 'download.part'
+        try:
+            # Si quedo una descarga trunca, la limpiamos
+            with open(self.download_file):
+                os.remove(self.download_file)
+        except IOError:
+            pass
+        
     def __get_host(self):
         if self.parsed_url is None:
             return None
@@ -37,7 +46,7 @@ class HttpClient:
             
             self.__conect() # self.s socket created
             self.__build_request() # self.request string created
-            self.__send_request()
+            self.__send_request() # Realiza la peticion y gestiona la descarga del recurso
         else:
             raise Exception("Expect parameter url")
     
@@ -65,15 +74,51 @@ class HttpClient:
                                         'host':self.parsed_url.hostname}
     
     def __send_request(self):
-        self.s.sendall(request % (GET,HOST))
-        response = self.s.recv(4096)
-        data = ""
+        self.s.sendall(self.request)
+        response = self.s.recv(self.buffer)
+        self.data = ""
         while len(response):
-            data += response
-            response = self.s.recv(4096)
-            if len(data) > 10000:
-                f = open('download.part','a')
-                
+            self.data += response
+            self.__header_detect()
+            self.__sync_data()
+            response = self.s.recv(self.buffer)
+        self.__sync_data()
+        
+        # Falta enviar los headers a un log
+        # Guardar el archivo
+        # Revisar tipo de archivo, formato, etc...
+        # Revisar content encoding
+        # Que use proxy
+        # Que soporte Head
+        
+        
+    def __sync_data(self):
+        """ Este metodo se encarga de descargar la memoria si el archivo 
+            que se descarga es demasiado grande"""
+        
+        if len(self.data) > 100000:
+            f = open(self.download_file,'a')
+            f.write(self.data)
+            self.data = ""
+            f.close()
+    
+    def __header_detect(self):
+        """Metodo que detecta si en la descarga se encuentra el header.
+            En caso afirmativo, lo carga en la instancia y lo elimina del
+            stream de descarga."""
+        headers = self.data.split(self.separador)
+        
+        # Si len es mayor a 1, el header ya esta completo
+        if len(headers) > 1:
+            self.data = self.separador.join(headers[1:]) # Arma la informacion de descarga sin el header
+            
+            self.headers = dict(re.findall(r"(?P<name>.*?): (?P<value>.*?)\r\n", headers[0])) # Arma un dic con los headers
+            # Primer linea del header HTTP/1.1
+            self.headers["http"] = headers[0].split('\r\n')[0] 
+            self.headers["http_version"] = self.headers["http"].split(' ')[0]
+            self.headers["status"] = self.headers["http"].split(' ')[1]
+            self.headers["status_message"] = ' '.join(self.headers["http"].split(' ')[2:])
+        
 if __name__=='__main__':
     pass
 

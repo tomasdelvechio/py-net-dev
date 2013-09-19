@@ -3,6 +3,7 @@ import sys
 import re
 import zlib
 from urlparse import urlparse
+import os
 
 if(len(sys.argv) < 2):
     sys.exit("Forma de ejecucion: python %s <url> [<port>]." % sys.argv[0])
@@ -30,6 +31,12 @@ else:
     GET = resource.path
 
 LOGFILE='http.log'
+
+try:
+   with open('download.part'):
+       os.remove('download.part')
+except IOError:
+   pass
 
 # Creacion del socket y conexion con el server #
 ################################################
@@ -66,7 +73,13 @@ while len(response):
         f.write(data)
         data = ""
         f.close()
-        
+
+if len(data) > 0:
+    print "Entro"
+    f = open('download.part','a')
+    f.write(data)
+    data = ""
+    f.close()
 # Al salir del bucle hay que mirar que data tenga algo mas, que seria el final del archivo
 
 s.close()
@@ -78,7 +91,7 @@ header = data.split('\r\n\r\n')[0]
 headers = dict(re.findall(r"(?P<name>.*?): (?P<value>.*?)\r\n", header)) # Armo un dic con los headers
 
 split_content = data.split('\r\n\r\n')[1:]
-content = ''.join(split_content)
+content = ''.join(split_content) # Mal, estoy eliminando los doble enter
 decompress_content = zlib.decompress(content,  16+zlib.MAX_WBITS)
 
 # Salida #
