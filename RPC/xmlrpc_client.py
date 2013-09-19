@@ -2,7 +2,7 @@
 from xmlrpclib import *
 import sys
 
-if(len(sys.argv) < 4):
+if(len(sys.argv) < 5):
     sys.exit("Forma de ejecucion: python %s <server_uno_ip> <server_uno_port> <server_dos_ip> <server_dos_port>" % sys.argv[0])
 
 server1 = ServerProxy("http://"+sys.argv[1]+":"+str(sys.argv[2]))
