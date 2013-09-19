@@ -56,9 +56,18 @@ Connection: keep-alive\r\n\n"""
 s.sendall(request % (GET,HOST))
 response = s.recv(4096)
 data = ""
+
 while len(response):
     data += response
+    #~ print "Descargando %s MB" % str(float(len(data) / (1024 * 1024)))
     response = s.recv(4096)
+    if len(data) > 10000:
+        f = open('download.part','a')
+        f.write(data)
+        data = ""
+        f.close()
+        
+# Al salir del bucle hay que mirar que data tenga algo mas, que seria el final del archivo
 
 s.close()
 
