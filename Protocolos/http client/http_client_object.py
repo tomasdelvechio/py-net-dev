@@ -24,6 +24,7 @@ class HttpClient:
             pass
         
     def _get_host(self):
+        """Devuelve el hostname de la url de forma inteligente(?)"""
         if self.parsed_url is None:
             return 'localhost'
         else:
@@ -34,6 +35,7 @@ class HttpClient:
             
     
     def _get_port(self):
+        """Devuelve el puerto de la url de forma inteligente(?)"""
         if self.parsed_url is None:
             return 80
         else:
@@ -43,6 +45,7 @@ class HttpClient:
                 return self.parsed_url.port
     
     def _get_path(self):
+        """Devuelve el path de la url de forma inteligente(?)"""
         if self.parsed_url is None:
             return '/'
         else:
@@ -52,6 +55,7 @@ class HttpClient:
                 return self.parsed_url.path
     
     def retrieve(self,url=None,method="GET"):
+        """Punto de acceso del cliente, crea la peticion, la envia al servidor, y guarda la respuesta"""
         if url:
             self.__url = url
             self.parsed_url = urlparse(url)
@@ -68,9 +72,8 @@ class HttpClient:
             raise Exception("Expect parameter url")
     
     def __conect(self):
-        
+        """Crea el socket con el servidor"""
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
         try:
           self.s.connect((self._get_host() , self._get_port()))
         except socket.error, msg:
@@ -78,12 +81,13 @@ class HttpClient:
           sys.exit(2)
     
     def __build_request(self):
+        """Construye el str de request para el servidor"""
         self.request =  "%(method)s %(path)s %(http_version)s\r\n"
         self.request += "Host: %(host)s\r\n"
         self.request += "User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:23.0) Gecko/20100101 Firefox/23.0\r\n"
         self.request += "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
         self.request += "Accept-Language: es-ar,es;q=0.8,en-us;q=0.5,en;q=0.3\r\n"
-        #~ self.request += "Accept-Encoding: gzip, deflate\r\n"
+        #~ self.request += "Accept-Encoding: gzip, deflate\r\n" # No soporta encoding en esta version
         self.request += "Connection: keep-alive\r\n\r\n"
         self.request = self.request % { 'method':self.method, \
                                         'path':self._get_path(), \
@@ -91,12 +95,13 @@ class HttpClient:
                                         'host':self._get_host()}
     
     def __send_request(self):
+        """Envia el request y recibe la respuesta"""
         self.s.sendall(self.request)
         response = self.s.recv(self.buffer)
         self.data = ""
         while len(response):
             self.data += response
-            # Solo debe hacerlo una vez, controlar!!!!!! esto asi como esta falla si en el content aparece nuevos doble enters
+            # Se controla que detecte solo la primera vez las cabeceras
             if not self.__header_detected:
                 self.__header_detect()
             self.__sync_data()
@@ -140,13 +145,14 @@ class HttpClient:
             self.__header_detected = True
     
     def __log_headers(self):
+        """Descarga las cabeceras de response a un archivo de log"""
         f = open(self.LOGFILE,'a')
         f.write("== HEADER: Response from %s\n" % self.__url)
         f.write("%s\n" % self.str_headers)
         f.close()
     
     def __save_file(self):
-        
+        """Guarda el archivo a disco, teniendo en cuenta si la descarga ya lo hizo o no"""
         file_in_disk = self.__saved_file()
         filename = self.__filename()
         if file_in_disk:
@@ -165,14 +171,14 @@ class HttpClient:
             return None
     
     def __file_type(self):
-        
+        """Retorna la extension segun el tipo de archivo"""
         if self.headers.has_key('Content-Type'):
             return '.' + self.headers['Content-Type'].split('; ')[0].split('/')[1]
         else:
             return '' # Que habria que devolver por default? vacio?
     
     def __filename(self):
-        
+        """Retorna el mejor nombre de archivo en funcion de la informacion disponible"""
         extension = self.__file_type()
         #~ print "PATH: ", self.__get_path()
         if self._get_path() in ('/', ''):
