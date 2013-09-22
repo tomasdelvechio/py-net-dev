@@ -23,30 +23,30 @@ class HttpClient:
         except IOError:
             pass
         
-    def __get_host(self):
+    def _get_host(self):
         if self.parsed_url is None:
             return 'localhost'
         else:
-            if self.parsed_url.hostname is None:
+            if self.parsed_url.hostname in (None,''):
                 return 'localhost'
             else:
                 return self.parsed_url.hostname
             
     
-    def __get_port(self):
+    def _get_port(self):
         if self.parsed_url is None:
             return 80
         else:
-            if self.parsed_url.port is None:
+            if self.parsed_url.port in (None,''):
                 return 80
             else:
                 return self.parsed_url.port
     
-    def __get_path(self):
+    def _get_path(self):
         if self.parsed_url is None:
             return '/'
         else:
-            if self.parsed_url.path is None:
+            if self.parsed_url.path in (None,''):
                 return '/'
             else:
                 return self.parsed_url.path
@@ -72,7 +72,7 @@ class HttpClient:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         try:
-          self.s.connect((self.__get_host() , self.__get_port()))
+          self.s.connect((self._get_host() , self._get_port()))
         except socket.error, msg:
           sys.stderr.write("[ERROR] %s\n" % msg[1])
           sys.exit(2)
@@ -86,9 +86,9 @@ class HttpClient:
         #~ self.request += "Accept-Encoding: gzip, deflate\r\n"
         self.request += "Connection: keep-alive\r\n\r\n"
         self.request = self.request % { 'method':self.method, \
-                                        'path':self.__get_path(), \
+                                        'path':self._get_path(), \
                                         'http_version':self.http_version, \
-                                        'host':self.__get_host()}
+                                        'host':self._get_host()}
     
     def __send_request(self):
         self.s.sendall(self.request)
@@ -175,10 +175,10 @@ class HttpClient:
         
         extension = self.__file_type()
         #~ print "PATH: ", self.__get_path()
-        if self.__get_path() in ('/', ''):
-            return self.__get_host() + extension
+        if self._get_path() in ('/', ''):
+            return self._get_host() + extension
         else:
-            return self.__get_path().split('/')[-1]
+            return self._get_path().split('/')[-1]
     
     def __saved_file(self):
         """Controla si durante la descarga el archivo fue bajado temporalmente a disco"""
@@ -192,9 +192,10 @@ if __name__=='__main__':
     # Test...
     #~ from http_client_object import HttpClient
     client = HttpClient()
-    client.retrieve('http://nesys.com.ar/images/nesys.jpg')
-    client.retrieve('http://nesys.com.ar/')
-    client.retrieve('http://nesys.com.ar')
+    #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    #~ client.retrieve('http://nesys.com.ar/')
+    #~ client.retrieve('http://nesys.com.ar')
+    client.retrieve('http://www.tomasdelvechio.com.ar/')
     
 
 
