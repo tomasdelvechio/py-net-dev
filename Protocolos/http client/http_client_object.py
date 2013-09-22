@@ -1,6 +1,8 @@
 from urlparse import urlparse
 import sys
 import socket
+import os
+import re
 
 class HttpClient:
     
@@ -12,6 +14,8 @@ class HttpClient:
         self.buffer = 4096
         self.separador = '\r\n\r\n' # Separador de header y content de la respuesta HTTP
         self.download_file = 'download.part'
+        self.__header_detected = False
+        self.__url = None
         try:
             # Si quedo una descarga trunca, la limpiamos
             with open(self.download_file):
@@ -21,28 +25,41 @@ class HttpClient:
         
     def __get_host(self):
         if self.parsed_url is None:
-            return None
+            return 'localhost'
         else:
-            return self.parsed_url.hostname
+            if self.parsed_url.hostname is None:
+                return 'localhost'
+            else:
+                return self.parsed_url.hostname
+            
     
     def __get_port(self):
         if self.parsed_url is None:
-            return None
+            return 80
         else:
-            return self.parsed_url.port
+            if self.parsed_url.port is None:
+                return 80
+            else:
+                return self.parsed_url.port
     
-    def retrieve(self,url=None,port=80,method="GET"):
+    def __get_path(self):
+        if self.parsed_url is None:
+            return '/'
+        else:
+            if self.parsed_url.path is None:
+                return '/'
+            else:
+                return self.parsed_url.path
+    
+    def retrieve(self,url=None,method="GET"):
         if url:
+            self.__url = url
             self.parsed_url = urlparse(url)
+            
             if self.parsed_url.scheme is '':
                 raise Exception("Formato de url incorrecto. Formato esperado: (http|ftp|https)://url[:port][/path_to_resource]")
-            if self.parsed_url.port is None:
-                self.parsed_url.port = port
-            if self.parsed_url.hostname = '':
-                self.parsed_url.hostname = 'localhost'
-            if self.parsed_url.path = '':
-                self.parsed_url.path = '/'
-            self.method = method
+            
+            self.method = method # GET o HEAD (Solo soporta GET por el momento)
             
             self.__conect() # self.s socket created
             self.__build_request() # self.request string created
@@ -66,12 +83,12 @@ class HttpClient:
         self.request += "User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:23.0) Gecko/20100101 Firefox/23.0\r\n"
         self.request += "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
         self.request += "Accept-Language: es-ar,es;q=0.8,en-us;q=0.5,en;q=0.3\r\n"
-        self.request += "Accept-Encoding: gzip, deflate\r\n"
+        #~ self.request += "Accept-Encoding: gzip, deflate\r\n"
         self.request += "Connection: keep-alive\r\n\r\n"
         self.request = self.request % { 'method':self.method, \
-                                        'path':self.parsed_url.path, \
+                                        'path':self.__get_path(), \
                                         'http_version':self.http_version, \
-                                        'host':self.parsed_url.hostname}
+                                        'host':self.__get_host()}
     
     def __send_request(self):
         self.s.sendall(self.request)
@@ -79,15 +96,15 @@ class HttpClient:
         self.data = ""
         while len(response):
             self.data += response
-            self.__header_detect()
+            # Solo debe hacerlo una vez, controlar!!!!!! esto asi como esta falla si en el content aparece nuevos doble enters
+            if not self.__header_detected:
+                self.__header_detect()
             self.__sync_data()
             response = self.s.recv(self.buffer)
         self.__sync_data()
         
-        # Falta enviar los headers a un log
-        # Guardar el archivo
-        # Revisar tipo de archivo, formato, etc...
-        # Revisar content encoding
+        self.__log_headers() # Logs a un header
+        self.__save_file() # Guardar el archivo
         # Que use proxy
         # Que soporte Head
         
@@ -112,13 +129,72 @@ class HttpClient:
         if len(headers) > 1:
             self.data = self.separador.join(headers[1:]) # Arma la informacion de descarga sin el header
             
-            self.headers = dict(re.findall(r"(?P<name>.*?): (?P<value>.*?)\r\n", headers[0])) # Arma un dic con los headers
+            self.str_headers = headers[0]
+            self.headers = dict(re.findall(r"(?P<name>.*?): (?P<value>.*?)\r\n", self.str_headers)) # Arma un dic con los headers
             # Primer linea del header HTTP/1.1
             self.headers["http"] = headers[0].split('\r\n')[0] 
             self.headers["http_version"] = self.headers["http"].split(' ')[0]
             self.headers["status"] = self.headers["http"].split(' ')[1]
             self.headers["status_message"] = ' '.join(self.headers["http"].split(' ')[2:])
+            
+            self.__header_detected = True
+    
+    def __log_headers(self):
+        f = open(self.LOGFILE,'a')
+        f.write("== HEADER: Response from %s\n" % self.__url)
+        f.write("%s\n" % self.str_headers)
+        f.close()
+    
+    def __save_file(self):
+        
+        file_in_disk = self.__saved_file()
+        filename = self.__filename()
+        if file_in_disk:
+            os.rename(self.download_file, filename)
+        else:
+            f = open(filename,'w')
+            f.write(self.data)
+            f.close()
+        
+    
+    def __content_encoding(self):
+        """Soporte para encoding de contenido con gzip. No soportado"""
+        if self.headers.has_key('Content-Encoding'):
+            return self.headers['Content-Encoding']
+        else:
+            return None
+    
+    def __file_type(self):
+        
+        if self.headers.has_key('Content-Type'):
+            return '.' + self.headers['Content-Type'].split('; ')[0].split('/')[1]
+        else:
+            return '' # Que habria que devolver por default? vacio?
+    
+    def __filename(self):
+        
+        extension = self.__file_type()
+        #~ print "PATH: ", self.__get_path()
+        if self.__get_path() in ('/', ''):
+            return self.__get_host() + extension
+        else:
+            return self.__get_path().split('/')[-1]
+    
+    def __saved_file(self):
+        """Controla si durante la descarga el archivo fue bajado temporalmente a disco"""
+        try:
+            open(self.download_file)
+        except:
+            return False
+        return True
         
 if __name__=='__main__':
-    pass
+    # Test...
+    #~ from http_client_object import HttpClient
+    client = HttpClient()
+    client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    client.retrieve('http://nesys.com.ar/')
+    client.retrieve('http://nesys.com.ar')
+    
+
 

@@ -57,7 +57,6 @@ Host: %s\r
 User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:23.0) Gecko/20100101 Firefox/23.0\r
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r
 Accept-Language: es-ar,es;q=0.8,en-us;q=0.5,en;q=0.3\r
-Accept-Encoding: gzip, deflate\r
 Connection: keep-alive\r\n\n"""
 
 s.sendall(request % (GET,HOST))
@@ -75,7 +74,6 @@ while len(response):
         f.close()
 
 if len(data) > 0:
-    print "Entro"
     f = open('download.part','a')
     f.write(data)
     data = ""
@@ -92,7 +90,8 @@ headers = dict(re.findall(r"(?P<name>.*?): (?P<value>.*?)\r\n", header)) # Armo 
 
 split_content = data.split('\r\n\r\n')[1:]
 content = ''.join(split_content) # Mal, estoy eliminando los doble enter
-decompress_content = zlib.decompress(content,  16+zlib.MAX_WBITS)
+decompress_content = content
+#~ decompress_content = zlib.decompress(content,  16+zlib.MAX_WBITS)
 
 # Salida #
 ##########
