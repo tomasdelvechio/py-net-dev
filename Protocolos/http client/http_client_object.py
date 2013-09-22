@@ -23,26 +23,32 @@ class HttpClient:
         except IOError:
             pass
         
-    def _get_host(self):
+    def _get_host(self,use_proxy=False):
         """Devuelve el hostname de la url de forma inteligente(?)"""
-        if self.parsed_url is None:
-            return 'localhost'
+        if use_proxy:
+            return urlparse(self.proxy).hostname
         else:
-            if self.parsed_url.hostname in (None,''):
+            if self.parsed_url is None:
                 return 'localhost'
             else:
-                return self.parsed_url.hostname
+                if self.parsed_url.hostname in (None,''):
+                    return 'localhost'
+                else:
+                    return self.parsed_url.hostname
             
     
-    def _get_port(self):
+    def _get_port(self,use_proxy=False):
         """Devuelve el puerto de la url de forma inteligente(?)"""
-        if self.parsed_url is None:
-            return 80
+        if use_proxy:
+            return urlparse(self.proxy).port
         else:
-            if self.parsed_url.port in (None,''):
+            if self.parsed_url is None:
                 return 80
             else:
-                return self.parsed_url.port
+                if self.parsed_url.port in (None,''):
+                    return 80
+                else:
+                    return self.parsed_url.port
     
     def _get_path(self):
         """Devuelve el path de la url de forma inteligente(?)"""
@@ -55,7 +61,18 @@ class HttpClient:
                 return self.parsed_url.path
     
     def retrieve(self,url=None,method="GET"):
-        """Punto de acceso del cliente, crea la peticion, la envia al servidor, y guarda la respuesta"""
+        """Punto de acceso del cliente, crea la peticion, la envia al servidor, y guarda la respuesta.
+            Maneja redireccion 301 (movido permanente)."""
+        if url:
+            self._retrieve(url=url,method=method)
+            #~ Soporta redireccion infinita, lo cual es un problema. Deberia tener un contador. Maximo?
+            while self.headers["status"] == "301":
+                self._retrieve(url=self.headers["location"],method=method)
+        else:
+            raise Exception("Expect parameter url")
+    
+    def _retrieve(self,url=None,method="GET"):
+        """Metodo de alto nivel que recupera la url solicitada"""
         if url:
             self.__url = url
             self.parsed_url = urlparse(url)
@@ -63,22 +80,25 @@ class HttpClient:
             if self.parsed_url.scheme is '':
                 raise Exception("Formato de url incorrecto. Formato esperado: (http|ftp|https)://url[:port][/path_to_resource]")
             
-            self.method = method # GET o HEAD (Solo soporta GET por el momento)
+            self.method = method # GET o HEAD
             
             self.__conect() # self.s socket created
             self.__build_request() # self.request string created
             self.__send_request() # Realiza la peticion y gestiona la descarga del recurso
         else:
             raise Exception("Expect parameter url")
-    
+        
     def __conect(self):
         """Crea el socket con el servidor"""
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-          self.s.connect((self._get_host() , self._get_port()))
+            if self.proxy:
+                self.s.connect((self._get_host(use_proxy=True) , self._get_port(use_proxy=True)))
+            else:
+                self.s.connect((self._get_host() , self._get_port()))
         except socket.error, msg:
-          sys.stderr.write("[ERROR] %s\n" % msg[1])
-          sys.exit(2)
+            sys.stderr.write("[ERROR] %s\n" % msg[1])
+            sys.exit(2)
     
     def __build_request(self):
         """Construye el str de request para el servidor"""
@@ -104,15 +124,14 @@ class HttpClient:
             # Se controla que detecte solo la primera vez las cabeceras
             if not self.__header_detected:
                 self.__header_detect()
-            self.__sync_data()
+            if not self.method == "HEAD":
+                self.__sync_data()
             response = self.s.recv(self.buffer)
-        self.__sync_data()
+        if not self.method == "HEAD":
+            self.__sync_data()
+            self.__save_file() # Guardar el archivo
         
         self.__log_headers() # Logs a un header
-        self.__save_file() # Guardar el archivo
-        # Que use proxy
-        # Que soporte Head
-        
         
     def __sync_data(self):
         """ Este metodo se encarga de descargar la memoria si el archivo 
@@ -146,10 +165,11 @@ class HttpClient:
     
     def __log_headers(self):
         """Descarga las cabeceras de response a un archivo de log"""
-        f = open(self.LOGFILE,'a')
-        f.write("== HEADER: Response from %s\n" % self.__url)
-        f.write("%s\n" % self.str_headers)
-        f.close()
+        if self.LOGFILE is not None:
+            f = open(self.LOGFILE,'a')
+            f.write("== HEADER: Response from %s\n" % self.__url)
+            f.write("%s\n" % self.str_headers)
+            f.close()
     
     def __save_file(self):
         """Guarda el archivo a disco, teniendo en cuenta si la descarga ya lo hizo o no"""
@@ -198,10 +218,12 @@ if __name__=='__main__':
     # Test...
     #~ from http_client_object import HttpClient
     client = HttpClient()
-    #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # Prueba de instancia con proxy
+    #~ client = HttpClient(logfile=None) # Prueba de instancia sin log de headers
+    client.retrieve('http://nesys.com.ar/images/nesys.jpg',method='HEAD')
     #~ client.retrieve('http://nesys.com.ar/')
     #~ client.retrieve('http://nesys.com.ar')
-    client.retrieve('http://www.tomasdelvechio.com.ar/')
+    client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
     
 
 
