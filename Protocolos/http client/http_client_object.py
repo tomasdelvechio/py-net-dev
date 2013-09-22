@@ -14,8 +14,8 @@ class HttpClient:
         self.buffer = 4096
         self.separador = '\r\n\r\n' # Separador de header y content de la respuesta HTTP
         self.download_file = 'download.part'
-        self.__header_detected = False
-        self.__url = None
+        self._header_detected = False
+        self._url = None
         try:
             # Si quedo una descarga trunca, la limpiamos
             with open(self.download_file):
@@ -74,7 +74,7 @@ class HttpClient:
     def _retrieve(self,url=None,method="GET"):
         """Metodo de alto nivel que recupera la url solicitada"""
         if url:
-            self.__url = url
+            self._url = url
             self.parsed_url = urlparse(url)
             
             if self.parsed_url.scheme is '':
@@ -82,13 +82,13 @@ class HttpClient:
             
             self.method = method # GET o HEAD
             
-            self.__conect() # self.s socket created
-            self.__build_request() # self.request string created
-            self.__send_request() # Realiza la peticion y gestiona la descarga del recurso
+            self._conect() # self.s socket created
+            self._build_request() # self.request string created
+            self._send_request() # Realiza la peticion y gestiona la descarga del recurso
         else:
             raise Exception("Expect parameter url")
         
-    def __conect(self):
+    def _conect(self):
         """Crea el socket con el servidor"""
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -100,7 +100,7 @@ class HttpClient:
             sys.stderr.write("[ERROR] %s\n" % msg[1])
             sys.exit(2)
     
-    def __build_request(self):
+    def _build_request(self):
         """Construye el str de request para el servidor"""
         self.request =  "%(method)s %(path)s %(http_version)s\r\n"
         self.request += "Host: %(host)s\r\n"
@@ -114,7 +114,7 @@ class HttpClient:
                                         'http_version':self.http_version, \
                                         'host':self._get_host()}
     
-    def __send_request(self):
+    def _send_request(self):
         """Envia el request y recibe la respuesta"""
         self.s.sendall(self.request)
         response = self.s.recv(self.buffer)
@@ -122,18 +122,18 @@ class HttpClient:
         while len(response):
             self.data += response
             # Se controla que detecte solo la primera vez las cabeceras
-            if not self.__header_detected:
-                self.__header_detect()
+            if not self._header_detected:
+                self._header_detect()
             if not self.method == "HEAD":
-                self.__sync_data()
+                self._sync_data()
             response = self.s.recv(self.buffer)
         if not self.method == "HEAD":
-            self.__sync_data()
-            self.__save_file() # Guardar el archivo
+            self._sync_data()
+            self._save_file() # Guardar el archivo
         
-        self.__log_headers() # Logs a un header
+        self._log_headers() # Logs a un header
         
-    def __sync_data(self):
+    def _sync_data(self):
         """ Este metodo se encarga de descargar la memoria si el archivo 
             que se descarga es demasiado grande"""
         
@@ -143,7 +143,7 @@ class HttpClient:
             self.data = ""
             f.close()
     
-    def __header_detect(self):
+    def _header_detect(self):
         """Metodo que detecta si en la descarga se encuentra el header.
             En caso afirmativo, lo carga en la instancia y lo elimina del
             stream de descarga."""
@@ -161,20 +161,20 @@ class HttpClient:
             self.headers["status"] = self.headers["http"].split(' ')[1]
             self.headers["status_message"] = ' '.join(self.headers["http"].split(' ')[2:])
             
-            self.__header_detected = True
+            self._header_detected = True
     
-    def __log_headers(self):
+    def _log_headers(self):
         """Descarga las cabeceras de response a un archivo de log"""
         if self.LOGFILE is not None:
             f = open(self.LOGFILE,'a')
-            f.write("== HEADER: Response from %s\n" % self.__url)
+            f.write("== HEADER: Response from %s\n" % self._url)
             f.write("%s\n" % self.str_headers)
             f.close()
     
-    def __save_file(self):
+    def _save_file(self):
         """Guarda el archivo a disco, teniendo en cuenta si la descarga ya lo hizo o no"""
-        file_in_disk = self.__saved_file()
-        filename = self.__filename()
+        file_in_disk = self._saved_file()
+        filename = self._filename()
         if file_in_disk:
             os.rename(self.download_file, filename)
         else:
@@ -182,31 +182,30 @@ class HttpClient:
             f.write(self.data)
             f.close()
         
-    
-    def __content_encoding(self):
+    def _content_encoding(self):
         """Soporte para encoding de contenido con gzip. No soportado"""
         if self.headers.has_key('Content-Encoding'):
             return self.headers['Content-Encoding']
         else:
             return None
     
-    def __file_type(self):
+    def _file_type(self):
         """Retorna la extension segun el tipo de archivo"""
         if self.headers.has_key('Content-Type'):
             return '.' + self.headers['Content-Type'].split('; ')[0].split('/')[1]
         else:
             return '' # Que habria que devolver por default? vacio?
     
-    def __filename(self):
+    def _filename(self):
         """Retorna el mejor nombre de archivo en funcion de la informacion disponible"""
-        extension = self.__file_type()
-        #~ print "PATH: ", self.__get_path()
+        extension = self._file_type()
+        #~ print "PATH: ", self._get_path()
         if self._get_path() in ('/', ''):
             return self._get_host() + extension
         else:
             return self._get_path().split('/')[-1]
     
-    def __saved_file(self):
+    def _saved_file(self):
         """Controla si durante la descarga el archivo fue bajado temporalmente a disco"""
         try:
             open(self.download_file)
@@ -216,14 +215,21 @@ class HttpClient:
         
 if __name__=='__main__':
     # Test...
-    #~ from http_client_object import HttpClient
-    client = HttpClient()
-    #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # Prueba de instancia con proxy
-    #~ client = HttpClient(logfile=None) # Prueba de instancia sin log de headers
+    #~ from http_client_object import HttpClient # Forma de importar la clase en un script
+    
+    # Instancia un cliente
+    client = HttpClient() # cliente normal
+    #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
+    #~ client = HttpClient(logfile=None) # cliente sin log de headers
+    
+    # Recuperacion con HEAD (No descarga el archivo)
     client.retrieve('http://nesys.com.ar/images/nesys.jpg',method='HEAD')
-    #~ client.retrieve('http://nesys.com.ar/')
-    #~ client.retrieve('http://nesys.com.ar')
     client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
+    
+    # Recuperacion con GET
+    client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    client.retrieve('http://www.tomasdelvechio.com.ar/')
+    
     
 
 
