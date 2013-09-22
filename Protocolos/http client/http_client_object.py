@@ -198,12 +198,14 @@ class HttpClient:
     
     def _filename(self):
         """Retorna el mejor nombre de archivo en funcion de la informacion disponible"""
-        extension = self._file_type()
-        #~ print "PATH: ", self._get_path()
-        if self._get_path() in ('/', ''):
-            return self._get_host() + extension
+        if self.headers["status"] == "404":
+            return "error_page_404.html"
         else:
-            return self._get_path().split('/')[-1]
+            extension = self._file_type()
+            if self._get_path() in ('/', ''):
+                return self._get_host() + extension
+            else:
+                return self._get_path().split('/')[-1]
     
     def _saved_file(self):
         """Controla si durante la descarga el archivo fue bajado temporalmente a disco"""
@@ -223,12 +225,12 @@ if __name__=='__main__':
     #~ client = HttpClient(logfile=None) # cliente sin log de headers
     
     # Recuperacion con HEAD (No descarga el archivo)
-    client.retrieve('http://nesys.com.ar/images/nesys.jpg',method='HEAD')
-    client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
+    #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg',method='HEAD')
+    #~ client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
     
     # Recuperacion con GET
-    client.retrieve('http://nesys.com.ar/images/nesys.jpg')
-    client.retrieve('http://www.tomasdelvechio.com.ar/')
+    client.retrieve('http://nesys.com.ar/images/nadaesys.jpg')
+    #~ client.retrieve('http://www.tomasdelvechio.com.ar/')
     
     
 
