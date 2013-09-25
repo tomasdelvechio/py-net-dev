@@ -31,17 +31,19 @@ session = response["opt"]["session"]
 cmd = ''
 print "Nueva sesion en %s:%d\n" % (host,port)
 while cmd != "exit":
-    s = open_conn(host,port)
+    prompt = response["opt"]["prompt"]
     cmd = raw_input(prompt)
-    request = { 'cmd' : cmd, 'opt' : { 'session' : session } }
-    s.send(json.dumps(request))
-    response = s.recv(buff_size)
-    while 1:
-        data = s.recv(buff_size)
-        response += data
-        if not data: break
-    response = json.loads(response)
-    print response['out']
-    s.close()
+    if cmd != "exit":
+        request = { 'cmd' : cmd, 'opt' : { 'session' : session } }
+        s = open_conn(host,port)
+        s.send(json.dumps(request))
+        response = s.recv(buff_size)
+        while 1:
+            data = s.recv(buff_size)
+            response += data
+            if not data: break
+        response = json.loads(response)
+        print response['out']
+        s.close()
 print "Sesion cerrada desde %s:%d\n" % (host,port)
 #~ cmd = raw_input('user@serverhost:$ ')

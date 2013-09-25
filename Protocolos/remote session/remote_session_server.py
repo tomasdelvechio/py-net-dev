@@ -5,8 +5,11 @@ import socket
 import sys
 import json
 from os.path import expanduser
-from subprocess import call
+import os
+#~ from subprocess import call
+import subprocess
 import random
+import shlex
 
 #~ def generarPrompt(login = None):
     
@@ -63,7 +66,6 @@ class RSessionServer:
     def getPrompt(self,session=None):
         
         if self.sessions.has_key(session):
-            
             return "%(user)s@%(hostname)s:%(directory)s$ " % {  'user' : self.sessions[session]['user'], \
                                                                 'hostname' : socket.gethostname(), \
                                                                 'directory' : self.sessions[session]['directory'] }
@@ -79,13 +81,15 @@ class RSessionServer:
             return self.validUsers[user]['home']
         else:
             return '/'
-            
+    
+    def shellquote(self,s):
+        return "'" + s.replace("'", "'\\''") + "'"
+    
     def load_server(self):
         
         print "Servidor iniciado en: ", self.s.getsockname()
         
         while True:
-            
             client_sock, client_addr = self.s.accept()
             print "Conexion desde:", client_sock.getpeername()
             data = client_sock.recv(self.buffsize)
@@ -95,31 +99,37 @@ class RSessionServer:
             # Recibido el request, hay que controlar 2 cosas:
             #   Si viene con opt (opciones) y si viene un cmd (comando)
             #   Si viene un comando, hay que controlar que la sesion exista
-            
             response = {}
-            
             # Manejo de opciones
             if(request.has_key('opt')):
-                
                 if(request['opt'].has_key('login')):
-                    
                     session_id = self.createSession(request['opt']['login'])
-                    
                     if session_id:
                         response['opt'] = { 'session' : session_id, \
                                             'prompt' : self.getPrompt(session_id)}
             
             # Manejo de comandos
             if(request.has_key('cmd')):
-                
                 # Si es una operacion de login, ignoro cualquier comando que me envie
                 if( not request['opt'].has_key('login') ):
                     if self.sessions[request['opt']['session']]['login']:
                         # si es una operacion de cd, entonces cambio la carpeta de trabajo
-                        
-                        with open('outfile','w') as fout:
-                            call(request['cmd'],stdout=fout,shell=True) # Ejecuta el comando
-                        response['out'] = open('outfile').read()
+                        cmd = shlex.split(request['cmd'])
+                        if cmd[0] == 'cd':
+                            if not os.path.isabs(cmd[1]):
+                                path = os.path.abspath(os.path.join(self.sessions[request['opt']['session']]['directory'],cmd[1]))
+                            else:
+                                path = os.path.abspath(cmd[1])
+                            os.chdir(path)
+                            self.sessions[request['opt']['session']]['directory'] = path
+                            response['out'] = ''
+                        else:
+                            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,)
+                            response['out'] = proc.communicate()[0]
+                        response['opt'] = {}
+                        response['opt']['prompt'] = self.getPrompt(request['opt']['session'])
+            
+            
             
             client_sock.sendall(json.dumps(response))
             
