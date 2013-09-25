@@ -112,11 +112,14 @@ class RSessionServer:
             # Manejo de comandos
             if(request.has_key('cmd')):
                 
-                # Si es una operacion de login, ignoro cualquier cmd que me envie
+                # Si es una operacion de login, ignoro cualquier comando que me envie
                 if( not request['opt'].has_key('login') ):
-                    with open('outfile','w') as fout:
-                        call(request['cmd'],stdout=fout,shell=True) # Ejecuta el comando
-                    response['out'] = open('outfile').read()
+                    if self.sessions[request['opt']['session']]['login']:
+                        # si es una operacion de cd, entonces cambio la carpeta de trabajo
+                        
+                        with open('outfile','w') as fout:
+                            call(request['cmd'],stdout=fout,shell=True) # Ejecuta el comando
+                        response['out'] = open('outfile').read()
             
             client_sock.sendall(json.dumps(response))
             
