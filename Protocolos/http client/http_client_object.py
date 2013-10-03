@@ -52,13 +52,18 @@ class HttpClient:
     
     def _get_path(self):
         """Devuelve el path de la url de forma inteligente(?)"""
-        if self.parsed_url is None:
-            return '/'
+        print self.parsed_url
+        if self.proxy is not None:
+            return self.parsed_url.scheme + '://' + self.parsed_url.netloc + self.parsed_url.path
         else:
-            if self.parsed_url.path in (None,''):
+        #~ print self.parsed_url
+            if self.parsed_url is None:
                 return '/'
             else:
-                return self.parsed_url.path
+                if self.parsed_url.path in (None,''):
+                    return '/'
+                else:
+                    return self.parsed_url.path
     
     def retrieve(self,url=None,method="GET"):
         """Punto de acceso del cliente, crea la peticion, la envia al servidor, y guarda la respuesta.
@@ -67,7 +72,7 @@ class HttpClient:
             self._retrieve(url=url,method=method)
             #~ Soporta redireccion infinita, lo cual es un problema. Deberia tener un contador. Maximo?
             while self.headers["status"] == "301":
-                self._retrieve(url=self.headers["location"],method=method)
+                self._retrieve(url=self.headers["Location"],method=method)
         else:
             raise Exception("Expect parameter url")
     
@@ -119,6 +124,7 @@ class HttpClient:
         self.s.sendall(self.request)
         response = self.s.recv(self.buffer)
         self.data = ""
+        self._header_detected = False
         while len(response):
             self.data += response
             # Se controla que detecte solo la primera vez las cabeceras
@@ -126,6 +132,9 @@ class HttpClient:
                 self._header_detect()
             if not self.method == "HEAD":
                 self._sync_data()
+            if self.headers.has_key("status"):
+                if self.headers["status"] == "301":
+                    break
             response = self.s.recv(self.buffer)
         if not self.method == "HEAD":
             self._sync_data()
@@ -202,10 +211,17 @@ class HttpClient:
             return "error_page_404.html"
         else:
             extension = self._file_type()
-            if self._get_path() in ('/', ''):
-                return self._get_host() + extension
+            if self.proxy is not None:
+                resource_name = self._get_path().split('/')
+                if resource_name[-1] is not '':
+                    return resource_name[-1] + extension
+                else:
+                    return resource_name[-2] + extension
             else:
-                return self._get_path().split('/')[-1]
+                if self._get_path() in ('/', ''):
+                    return self._get_host() + extension
+                else:
+                    return self._get_path().split('/')[-1]
     
     def _saved_file(self):
         """Controla si durante la descarga el archivo fue bajado temporalmente a disco"""
@@ -220,8 +236,8 @@ if __name__=='__main__':
     #~ from http_client_object import HttpClient # Forma de importar la clase en un script
     
     # Instancia un cliente
-    client = HttpClient() # cliente normal
-    #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
+    #~ client = HttpClient() # cliente normal
+    client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
     #~ client = HttpClient(logfile=None) # cliente sin log de headers
     
     # Recuperacion con HEAD (No descarga el archivo)
@@ -229,7 +245,9 @@ if __name__=='__main__':
     #~ client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
     
     # Recuperacion con GET
-    client.retrieve('http://nesys.com.ar/images/nadaesys.jpg')
+    #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    client.retrieve('http://www.tyr.unlu.edu.ar')
+    #~ client.retrieve('http://localhost:8000/logounlu-nombre6-sitio-b.png')
     #~ client.retrieve('http://www.tomasdelvechio.com.ar/')
     
     
