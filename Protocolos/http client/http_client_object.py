@@ -201,7 +201,7 @@ class HttpClient:
         if self.headers.has_key('Content-Type'):
             return '.' + self.headers['Content-Type'].split('; ')[0].split('/')[1]
         else:
-            return '' # Que habria que devolver por default? vacio?
+            return '.html' # Que habria que devolver por default? vacio?
     
     def _filename(self):
         """Retorna el mejor nombre de archivo en funcion de la informacion disponible"""
