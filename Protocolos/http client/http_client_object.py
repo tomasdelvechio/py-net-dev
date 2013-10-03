@@ -52,11 +52,9 @@ class HttpClient:
     
     def _get_path(self):
         """Devuelve el path de la url de forma inteligente(?)"""
-        print self.parsed_url
         if self.proxy is not None:
             return self.parsed_url.scheme + '://' + self.parsed_url.netloc + self.parsed_url.path
         else:
-        #~ print self.parsed_url
             if self.parsed_url is None:
                 return '/'
             else:
@@ -136,7 +134,7 @@ class HttpClient:
                 if self.headers["status"] == "301":
                     break
             response = self.s.recv(self.buffer)
-        if not self.method == "HEAD":
+        if not self.method == "HEAD" and not self.headers["status"] == "301":
             self._sync_data()
             self._save_file() # Guardar el archivo
         
@@ -236,8 +234,8 @@ if __name__=='__main__':
     #~ from http_client_object import HttpClient # Forma de importar la clase en un script
     
     # Instancia un cliente
-    #~ client = HttpClient() # cliente normal
-    client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
+    client = HttpClient() # cliente normal
+    #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
     #~ client = HttpClient(logfile=None) # cliente sin log de headers
     
     # Recuperacion con HEAD (No descarga el archivo)
