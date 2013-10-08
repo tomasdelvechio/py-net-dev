@@ -5,16 +5,24 @@ import socket
 import sys
 
 if(len(sys.argv) < 2):
-    sys.exit("Falta el mensaje. Forma de ejecucion: python %s mensaje" % sys.argv[0])
+    sys.exit("Forma de ejecucion: python %s \"mensaje\" <ip_server> <port_server>" % sys.argv[0])
+
+if(len(sys.argv) < 3):
+    sys.exit("Falta ip y puerto del servidor. Forma de ejecucion: python %s mensaje <ip_server> <port_server>" % sys.argv[0])
+
+if(len(sys.argv) < 4):
+    sys.exit("Falta el puerto del servidor. Forma de ejecucion: python %s mensaje <ip_server> <port_server>" % sys.argv[0])
 
 data_send = sys.argv[1]
 
 # Ejemplo de Socket Cliente TCP
-buff_size = 4096                # Tamaño del buffer
-host, port = 'localhost', 5600  # Host y Puerto a donde se va a conectar
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Declaración del Socket
-s.connect((host, port))         # Inicia la conexión TCP contra el servidor
-s.send(data_send)                  # Envío algo
-data = s.recv(buff_size)               # Recibo algo
+buff_size = 4096
+host, port = sys.argv[2],int(sys.argv[3])
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((host, port))
+s.sendall(data_send)
+data = s.recv(buff_size)
+while len(data) == buff_size:
+    data = s.recv(buff_size)
 print "El servidor respondio: ", data
-s.close()                       # Cierro el socket
+s.close()
