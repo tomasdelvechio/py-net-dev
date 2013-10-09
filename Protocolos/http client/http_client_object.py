@@ -175,6 +175,7 @@ class HttpClient:
         if self.LOGFILE is not None:
             f = open(self.LOGFILE,'a')
             f.write("== HEADER: Response from %s\n" % self._url)
+            f.write("==   Method: %s\n" % self.method)
             f.write("%s\n" % self.str_headers)
             f.close()
     
@@ -234,19 +235,20 @@ if __name__=='__main__':
     #~ from http_client_object import HttpClient # Forma de importar la clase en un script
     
     # Instancia un cliente
-    client = HttpClient() # cliente normal
+    #~ client = HttpClient() # cliente normal
     #~ client = HttpClient(proxy='http://proxyw.unlu.edu.ar:8080') # cliente con proxy
-    #~ client = HttpClient(logfile=None) # cliente sin log de headers
+    #~ client = HttpClient(logfile='lalal.txt') # cliente con log personalizado
     
     # Recuperacion con HEAD (No descarga el archivo)
     #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg',method='HEAD')
     #~ client.retrieve('http://www.tomasdelvechio.com.ar/',method='HEAD')
     
     # Recuperacion con GET
-    #~ client.retrieve('http://nesys.com.ar/images/nesys.jpg')
-    client.retrieve('http://www.tyr.unlu.edu.ar')
+    client.retrieve('http://nesys.com.ar/images/nesys.jpg')
+    #~ client.retrieve('http://www.tyr.unlu.edu.ar')
     #~ client.retrieve('http://localhost:8000/logounlu-nombre6-sitio-b.png')
     #~ client.retrieve('http://www.tomasdelvechio.com.ar/')
+    #~ client.retrieve('http://localhost:8000/Mint.vdi')
     
     
 
