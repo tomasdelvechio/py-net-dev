@@ -1,7 +1,7 @@
 from http_client_object import HttpClient
 import argparse
 
-parser = argparse.ArgumentParser(description="Script que crawlear una porcion de la web a partir de una URL y profundidad")
+parser = argparse.ArgumentParser(description="Script descarga un recurso a traves de un servidor HTTP.")
 parser.add_argument('-u', '--url', help="Url a descargar")
 parser.add_argument('-p', '--proxy', help="Configurar Proxy. Formato: http://proxy_url:port")
 parser.add_argument('-m', '--method', help="Metodo HTTP de descarga. Soporta actualmente GET y HEAD")
