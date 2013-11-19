@@ -1,0 +1,6 @@
+
+
+Archivo users:
+
+    Define los usuarios que seran aceptados por el servidor.
+    Formato: json.
