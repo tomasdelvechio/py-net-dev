@@ -149,7 +149,9 @@ class HttpServer:
     def dispatcher_request(self, request):
 
         request_headers = self.get_header(request)
-        
+        if debug:
+            if request_headers.has_key('Request-Line'):
+                print "   %s" % request_headers['Request-Line']
         if self.header_valido(request_headers):
             content, response = self.get_resource(request_headers)
             # Solo entrara en caso que sea GET
@@ -180,19 +182,15 @@ class HttpServer:
                     self.sock_input.append(client)
 
                 elif s == sys.stdin:
-                    print "Presionaron una tecla..."
                     keyWord = sys.stdin.readline()
-                    break
+                    #break
+                    pass
 
                 else:
                     # Procesa la request
-                    print "Recibo datos de: %s:%s" % s.getpeername()
+                    print "Peticion de: %s:%s" % s.getpeername()
                     request = self.receive_request(s)
-                    if debug:
-                        print " Request: ", request
                     response = self.dispatcher_request(request)
-                    if debug:
-                        print " Response: ", response
                     s.sendall(response)
                     s.close()
                     self.sock_input.remove(s)
