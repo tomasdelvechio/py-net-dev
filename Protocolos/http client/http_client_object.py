@@ -4,7 +4,7 @@ import socket
 import os
 import re
 
-class HttpClient:
+class HttpClient(object):
     
     def __init__(self,proxy=None,logfile='headers.log'):
         self.proxy = proxy

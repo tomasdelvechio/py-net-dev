@@ -10,7 +10,7 @@ import json
 
 debug = True
 
-class HttpServer:
+class HttpServer(object):
     
     def __init__(self, host='', port=8080, proxy=None, logfile='headers.log', configfile='server.conf'):
         # Server vars
