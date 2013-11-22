@@ -8,7 +8,7 @@ import select
 import re
 import json
 
-debug = True
+debug = False
 
 class HttpServer(object):
     
@@ -35,9 +35,9 @@ class HttpServer(object):
                config = f.read()
                return json.loads(config)
         except IOError:
-            raise Exception('Archivo de configuracion no existe o el proceso no posee los permisos necesarios para leerlo. Path: %s' % os.path.abspath(configfile))
+            sys.exit('Archivo de configuracion no existe o el proceso no posee los permisos necesarios para leerlo. Path: %s' % os.path.abspath(configfile))
         except ValueError:
-            raise Exception('Formato del archivo de configuracion incorrecto. Path: %s' % os.path.abspath(configfile))
+            sys.exit('Formato del archivo de configuracion incorrecto. Path: %s' % os.path.abspath(configfile))
 
     def receive_request(self, socket):
         data = socket.recv(self.buffer)
@@ -83,6 +83,11 @@ class HttpServer(object):
         error_content_name = self.config['error_page']
         return os.path.normpath('/'.join([root_directory,error_content_name]))
 
+    def get_full_path_forbidden_content(self):
+        root_directory = self.get_root_path()
+        forbidden_content_name = self.config['forbidden_page']
+        return os.path.normpath('/'.join([root_directory,forbidden_content_name]))
+
     def content_exists(self, path):
         full_content_path = self.get_full_path_content(path)
         try:
@@ -100,7 +105,22 @@ class HttpServer(object):
             return self.config['default_error_html']
 
     def get_error_headers(self):
+        print '   %s 404 Not Found' % self.http_version
         return self.h_separador.join([  '%s 404 Not Found' % self.http_version,
+                                        'Content-Type: text/html',
+                                        self.h_separador    ])
+
+    def get_forbidden_content(self):
+        full_path_forbidden_content = self.get_full_path_forbidden_content()
+        try:
+            with open(full_path_forbidden_content) as f:
+               return f.read()
+        except IOError:
+            return self.config['default_forbidden_html']
+
+    def get_forbidden_headers(self):
+        print '   %s 403 Forbidden' % self.http_version
+        return self.h_separador.join([  '%s 403 Forbidden' % self.http_version,
                                         'Content-Type: text/html',
                                         self.h_separador    ])
 
@@ -119,11 +139,16 @@ class HttpServer(object):
     def get_response_headers(self, path):
 
         if self.content_exists(path):
+            print '   %s 200 OK' % self.http_version
             headers = self.h_separador.join([   '%s 200 OK' % self.http_version,
                                                 self.h_separador    ])
         else:
             headers = self.get_error_headers()
         return headers
+
+    def is_dir(self, path):
+        abs_path = self.get_full_path_content(path)
+        return os.path.isdir(abs_path)
 
     def get_resource(self, request_headers): 
         if request_headers.has_key('Request-Line'):
@@ -133,9 +158,13 @@ class HttpServer(object):
 
             if method == 'GET':
                 content = self.get_content(resource)
+                is_dir = self.is_dir(resource)
 
             if content:
                 headers = self.get_response_headers(resource)
+            elif is_dir:
+                headers = self.get_forbidden_headers()
+                content = self.get_forbidden_content()
             else:
                 headers = self.get_error_headers()
                 content = self.get_error_content()
@@ -149,9 +178,8 @@ class HttpServer(object):
     def dispatcher_request(self, request):
 
         request_headers = self.get_header(request)
-        if debug:
-            if request_headers.has_key('Request-Line'):
-                print "   %s" % request_headers['Request-Line']
+        if request_headers.has_key('Request-Line'):
+            print "   %s" % request_headers['Request-Line']
         if self.header_valido(request_headers):
             content, response = self.get_resource(request_headers)
             # Solo entrara en caso que sea GET
@@ -178,7 +206,8 @@ class HttpServer(object):
 
                 if s == self.sock_server:
                     client, address = self.sock_server.accept()
-                    print "Se ha conectado %s:%s" % address
+                    if debug:
+                        print "Se ha conectado %s:%s" % address
                     self.sock_input.append(client)
 
                 elif s == sys.stdin:
