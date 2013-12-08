@@ -181,7 +181,6 @@ class HttpServer(object):
         return content, headers
 
     def dispatcher_request(self, request):
-
         request_headers = self.get_header(request)
         if request_headers.has_key('Request-Line'):
             print "   %s" % request_headers['Request-Line']
@@ -224,8 +223,9 @@ class HttpServer(object):
                     # Procesa la request
                     print "Peticion de: %s:%s" % s.getpeername()
                     request = self.receive_request(s)
-                    response = self.dispatcher_request(request)
-                    s.sendall(response)
+                    if request:
+                        response = self.dispatcher_request(request)
+                        s.sendall(response)
                     s.close()
                     self.sock_input.remove(s)
             
