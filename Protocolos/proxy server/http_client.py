@@ -16,6 +16,7 @@ class HttpClient(object):
         self.download_file = 'download.part'
         self._header_detected = False
         self._url = None
+        self.sock_timeout = 10
         try:
             # Si quedo una descarga trunca, la limpiamos
             with open(self.download_file):
@@ -90,9 +91,12 @@ class HttpClient(object):
             self.method = method
             
         self._conect() # self.s socket created
+        #print "   [C]: Request", request
         self.request = request
-        self._send_request() # Realiza la peticion y gestiona la descarga del recurso
-
+        try:
+            self._send_request() # Realiza la peticion y gestiona la descarga del recurso
+        except socket.timeout:
+            return None,"""HTTP/1.0 404 Not Found"""
         return self._filename(), self.str_headers
     
     def _retrieve(self,url=None,method="GET"):
@@ -115,6 +119,7 @@ class HttpClient(object):
     def _conect(self):
         """Crea el socket con el servidor"""
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.settimeout(self.sock_timeout)
         try:
             if self.proxy:
                 self.s.connect((self._get_host(use_proxy=True) , self._get_port(use_proxy=True)))
@@ -155,6 +160,7 @@ class HttpClient(object):
                 if self.headers["status"] == "301":
                     break
             response = self.s.recv(self.buffer)
+        
         if not self.method == "HEAD" and not self.headers["status"] == "301":
             self._sync_data()
             self._save_file() # Guardar el archivo
@@ -204,7 +210,6 @@ class HttpClient(object):
         """Guarda el archivo a disco, teniendo en cuenta si la descarga ya lo hizo o no"""
         file_in_disk = self._saved_file()
         filename = self._filename()
-        print '      [C]: filename:', filename
         if file_in_disk:
             os.rename(self.download_file, filename)
         else:

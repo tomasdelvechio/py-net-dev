@@ -10,13 +10,13 @@ import json
 from http_client import HttpClient
 from threading import Thread
 import signal
+import collections
 
 debug = False
 
 class ProxyThread(Thread):
     """Implementa un mini cliente, para realizar descargas en paralelo de las peticiones"""
-    def __init__(self,s,cache):
-        print "   [H]: ==== NUEVO HILO ===="
+    def __init__(self,s,cache,cache_dir,cache_len):
         Thread.__init__(self)
         self.s = s
         self.buffer = 4096
@@ -27,6 +27,8 @@ class ProxyThread(Thread):
         self.headers = {}
         self.requests = {}
         self.cache = cache
+        self.cache_len = int(cache_len)
+        self.cache_dir = cache_dir
 
     def get_header(self, request):
         """Metodo que detecta si en la descarga se encuentra el header.
@@ -57,8 +59,6 @@ class ProxyThread(Thread):
         self.headers[peername] = { 'str' : request, 'dic' : request_headers}
 
         if self.header_valido(request_headers):
-            if debug:
-                print "    [H]: %s" % request_headers['Request-Line']
             self.get_resource(s)
             return True
         else:        
@@ -68,22 +68,53 @@ class ProxyThread(Thread):
         return self.cache.has_key(resource)
 
     def get_from_cache(self, resource):
+        #print "   [C]: Recurso", resource
         if self.en_cache(resource):
-            print "     [H]: RECUPERADO ELEMENTO DE CACHE", resource
             filename = self.cache[resource]['filename']
             header = self.cache[resource]['header']
             return filename, header
 
     def set_to_cache(self, resource, filename, header):
-        print "     [H]: NUEVO ELEMENTO EN CACHE", resource, filename, header
         self.cache[resource] = {}
         self.cache[resource]['filename'] = filename
         self.cache[resource]['header'] = header
+        # Si la cache supera el limite, eliminar el elemento mas viejo
+        if(len(self.cache)>self.cache_len):
+            # Elimina el elemento mas viejo
+            older_element_key = self.cache.keys()[0]
+            self.remove_from_cache(older_element_key)
         return True
 
     def remove_from_cache(self, resource):
+        try:
+            os.remove(self.cache[resource]['filename'])
+        except:
+            pass # Puede pasar que el archivo no exista, etc...
         self.cache.pop(resource)
         return True
+
+    def adaptar_header(self, header):
+        # Transformar el header en un dic
+        # Modificar los campos necesarios
+        # Transformarlo de nuevo en un str y retornarlo
+        headers = header.split(self.h_separador)
+
+        # En la response line, cambiamos la version del protocolo
+        response_line = headers[0].split()
+        response_line[0] = 'HTTP/1.0'
+        headers[0] = " ".join(response_line)
+
+        # Quitamos el parametro Conection: keep-alive
+        try:
+            headers.remove('Connection: keep-alive')
+        except Exception:
+            try:
+                headers.remove('Connection: Keep-Alive')
+            except Exception:
+                pass
+
+        new_header = self.h_separador.join(headers)
+        return new_header
 
     def get_content(self, s):
         
@@ -95,12 +126,12 @@ class ProxyThread(Thread):
         if self.en_cache(resource):
             filename, header = self.get_from_cache(resource)
         else:
-            client = HttpClient(download_dir=self.cache['cache_dir'])
+            client = HttpClient(download_dir=self.cache_dir)
             filename, header = client.retrieve_con_headers(request_headers, resource, method)
+            header = self.adaptar_header(header)
             self.set_to_cache(resource,filename,header)
 
         self.requests[s.getpeername()] = {}
-
         self.requests[s.getpeername()]['filename'] = filename
         self.requests[s.getpeername()]['header'] = header
 
@@ -130,11 +161,15 @@ class ProxyThread(Thread):
             if self.dispatcher_request(request,self.s):
                 filename = self.requests[self.s.getpeername()]['filename']
                 headers = self.requests[self.s.getpeername()]['header']
-                content = headers + '\r\n\r\n'
+                headers += '\r\n\r\n'
                 try:
-                    with open(filename) as f:
-                        content += f.read()
-                    self.s.sendall(content)
+                    if filename is not None:
+                        with open(filename) as f:
+                            #content += f.read()
+                            content = f.read()
+                    else:
+                        content = ""
+                    self.s.sendall(headers.encode('utf-8')+content)
                 except IOError as e:
                     # Hubo algun error, el archivo no esta, pero esta en el indice de la cache, asi que lo borramos del indice
                     method, resource, version = self.headers[self.s.getpeername()]['dic']['Request-Line'].split()
@@ -142,7 +177,6 @@ class ProxyThread(Thread):
                     # Ahora hay que recuperarlo de nuevo
                     self.dispatcher_request(request,self.s)
                 break
-        print "    [H]: ==== FIN HILO ===="
 
 
 class ProxyServer(object):
@@ -163,10 +197,10 @@ class ProxyServer(object):
         # Config vars
         self.config = self.load_config(configfile)
         self.cachefile = cachefile
-        self.cache = self.load_cache(cachefile)
+        self.cache = collections.OrderedDict(self.load_cache(cachefile))
 
-        if not os.path.exists(self.cache['cache_dir']):
-            os.makedirs(self.cache['cache_dir'])
+        if not os.path.exists(self.config['cache_dir']):
+            os.makedirs(self.config['cache_dir'])
 
     def load_config(self, configfile):
         try:
@@ -289,7 +323,7 @@ class ProxyServer(object):
                     else:
                         # Procesa la request
                         print "  [S]: Peticion de: %s:%s" % s.getpeername()
-                        h = ProxyThread(s,self.cache).start()
+                        h = ProxyThread(s,self.cache,self.config["cache_dir"],self.config["cache_len"]).start()
                         hilos.append(h)
                         self.sock_input.remove(s)
         except KeyboardInterrupt:
