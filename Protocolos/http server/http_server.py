@@ -7,12 +7,13 @@ import os
 import select
 import re
 import json
+import argparse
 
 debug = False
 
 class HttpServer(object):
     
-    def __init__(self, host='', port=8080, proxy=None, logfile='headers.log', configfile='server.conf'):
+    def __init__(self, host='', port=8080, proxy=None, logfile='headers.log', configfile='server.conf', rootdir=None):
         # Server vars
         self.proxy = proxy
         self.LOGFILE = logfile
@@ -28,6 +29,10 @@ class HttpServer(object):
         self.port = port
 
         self.config = self.load_config(configfile)
+
+        if rootdir is not None:
+            if os.path.exists(rootdir) and os.path.isdir(rootdir):
+                self.config["root"] = rootdir
 
     def load_config(self, configfile):
         try:
@@ -228,5 +233,44 @@ class HttpServer(object):
         
         
 if __name__ == "__main__":
-    server = HttpServer()
+    parser = argparse.ArgumentParser(description="Script que inicia un web server, segun los parametros proporcionados.")
+    parser.add_argument('-i', '--host', help="Host donde escuchara el web server. 0.0.0.0 por defecto.")
+    parser.add_argument('-p', '--port', help="Numero de puerto donde escuchara el web server. 8080 por defecto.")
+    parser.add_argument('-c', '--configfile', help="Archivo de configuracion del servidor.")
+    parser.add_argument('-l', '--logfile', help="Archivo de log de headers devueltos por el servidor")
+    parser.add_argument('-r', '--rootdir', help="Carpeta raiz del web server. Debe existir. Por defecto, la actual.")
+
+    args = parser.parse_args()
+
+    if args.host:
+        host = args.host
+    else:
+        host = ''
+
+    if args.port:
+        port = int(args.port)
+    else:
+        port = 8080
+
+    if args.configfile:
+        configfile = args.configfile
+    else:
+        configfile = 'server.conf'
+
+    if args.logfile:
+        logfile = args.logfile
+    else:
+        logfile = 'headers.log'
+
+    if args.rootdir:
+        rootdir = args.rootdir
+    else:
+        rootdir = None
+
+    server = HttpServer(host=host,port=port,configfile=configfile,logfile=logfile,rootdir=rootdir)
     server.run()
+
+    # Ejemplos:
+    # python http_server.py -p 8080 -r 'www1'
+    # python http_server.py -p 8081 -r 'www2'
+    # python http_server.py -p 8082 -r 'www3'
