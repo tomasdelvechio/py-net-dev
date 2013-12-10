@@ -232,63 +232,8 @@ class ProxyServer(object):
         except ValueError:
             sys.exit('Formato del archivo de configuracion incorrecto. Path: %s' % os.path.abspath(cachefile))
 
-    def get_root_path(self):
-        return os.path.abspath(self.config['root'])
-
-    def get_full_path_content(self,relative_path):
-        root_directory = self.get_root_path()
-        if relative_path == '/':
-            relative_path = self.config['default_page_name']
-        return os.path.normpath('/'.join([root_directory,relative_path]))
-
-    def get_full_path_error_content(self):
-        root_directory = self.get_root_path()
-        error_content_name = self.config['error_page']
-        return os.path.normpath('/'.join([root_directory,error_content_name]))
-
-    def get_full_path_forbidden_content(self):
-        root_directory = self.get_root_path()
-        forbidden_content_name = self.config['forbidden_page']
-        return os.path.normpath('/'.join([root_directory,forbidden_content_name]))
-
-    def content_exists(self, path):
-        full_content_path = self.get_full_path_content(path)
-        try:
-            with open(full_content_path) as f:
-               return True
-        except IOError:
-            return False
-
-    def get_error_content(self):
-        full_path_error_content = self.get_full_path_error_content()
-        try:
-            with open(full_path_error_content) as f:
-               return f.read()
-        except IOError:
-            return self.config['default_error_html']
-
-    def get_error_headers(self):
-        print '   %s 404 Not Found' % self.http_version
-        return self.h_separador.join([  '%s 404 Not Found' % self.http_version,
-                                        'Content-Type: text/html',
-                                        self.h_separador    ])
-
-    def get_forbidden_content(self):
-        full_path_forbidden_content = self.get_full_path_forbidden_content()
-        try:
-            with open(full_path_forbidden_content) as f:
-               return f.read()
-        except IOError:
-            return self.config['default_forbidden_html']
-
-    def get_forbidden_headers(self):
-        print '   %s 403 Forbidden' % self.http_version
-        return self.h_separador.join([  '%s 403 Forbidden' % self.http_version,
-                                        'Content-Type: text/html',
-                                        self.h_separador    ])
-
     def open_socket(self):
-
+        """Metodo que crea el socket del servidor y devuelve la lista de sockets inicial"""
         sock_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock_server.bind((self.host,self.port))
@@ -297,46 +242,50 @@ class ProxyServer(object):
         return sock_server, sock_input
 
     def run(self):
+        """Metodo principal para invocar al server"""
         # Arma socket de servidor
         self.sock_server, self.sock_input = self.open_socket()
-        
         print "[S]: Servidor iniciado en %s:%s" % (self.host is not '' if self.host else '0.0.0.0',self.port)
 
-        hilos = []
+        hilos = [] # Variable que contendra los hilos que se creen para atender las peticiones
         try:
             while True:
                 lst_input,lst_output,lst_error = select.select(self.sock_input,[],[])
 
                 for s in lst_input:
 
+                    # Si el socket es el servidor
                     if s == self.sock_server:
                         client, address = self.sock_server.accept()
-                        if debug:
-                            print " [S]: Se ha conectado %s:%s" % address
                         self.sock_input.append(client)
 
+                    # Si es desde la entrada estandar
                     elif s == sys.stdin:
                         keyWord = sys.stdin.readline()
-                        #break
                         pass
 
+                    # Cualquier otro socket
                     else:
-                        # Procesa la request
+                        # Procesa la peticion
                         print "  [S]: Peticion de: %s:%s" % s.getpeername()
+                        # Crea un hilo para procesar la peticion
                         h = ProxyThread(s,self.cache,self.config["cache_dir"],self.config["cache_len"]).start()
-                        hilos.append(h)
-                        self.sock_input.remove(s)
+                        hilos.append(h) # Agrega el hilo a la lista de hilos
+                        self.sock_input.remove(s) # Remueve el hilo de la lista de hilos, porque ya fue atendido
+
+        # Maneja la interrupcion del servidor via Ctrl+C
         except KeyboardInterrupt:
             print "\n [S]: Cerrando el servidor"
             self.sock_server.close()
-            print " [S]: Cerrando hilos"
+            #Es una buena practica cerrar los sockets y esperar a que los hilos finalicen, pero fallaba asi como esta implementado.
+            #print " [S]: Cerrando hilos"
             #for h in hilos:
                 #h.s.close()
                 #h.join()
             print " [S]: Sincronizando cache"
-            self.save_cache()
-            
-        
+            self.save_cache() # Metodo que persiste la cache en disco, para poder usarla en la siguiente sesion
+
+# Main
 if __name__ == "__main__":
     server = ProxyServer()
     server.run()
